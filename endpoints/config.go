@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"appliedConcurrency/controller"
 	"fmt"
 	"log"
 
@@ -9,9 +10,9 @@ import (
 
 const serverPort = ":3000"
 
-func PrepareAndStartServer() error {
+func PrepareAndStartServer(c controller.IController) error {
 	router := gin.Default()
-	handler, err := newHandler()
+	handler, err := newHandler(c)
 
 	if err != nil {
 		return err
@@ -28,7 +29,7 @@ func PrepareAndStartServer() error {
 func configureEndpoints(router *gin.Engine, handler iHandler) error {
 	router.GET("/", handler.GetIndex)
 	router.GET("/products", handler.GetProducts)
-	router.GET("/orders/:orderId", handler.GetOrderByID)
+	router.GET("/orders/:orderID", handler.GetOrderByID)
 	router.POST("/orders", handler.CreateNewOrder)
 
 	return nil
