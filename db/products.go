@@ -17,7 +17,7 @@ type ProductsDB struct {
 	products map[string]models.Product
 }
 
-func NewProducts() (*ProductsDB, error) {
+func NewProducts() (IProductsDB, error) {
 	p := &ProductsDB{
 		products: make(map[string]models.Product),
 	}

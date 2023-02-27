@@ -14,7 +14,7 @@ type OrderDB struct {
 	placedOrders map[string]models.Order
 }
 
-func NewOrders() *OrderDB {
+func NewOrders() IOrderDB {
 	return &OrderDB{
 		placedOrders: make(map[string]models.Order),
 	}
