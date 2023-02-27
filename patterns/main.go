@@ -1,5 +1,0 @@
-package patterns
-
-func RunPatterns() {
-
-}

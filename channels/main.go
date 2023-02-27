@@ -1,5 +1,0 @@
-package channels
-
-func RunChannels(){
-	
-}
