@@ -23,12 +23,12 @@ func (o *OrderDB) Find(id string) (models.Order, error) {
 	var order models.Order
 	result, ok := o.placedOrders.Load(id)
 	if !ok {
-		return order, utils.Error(utils.OrderNotFound)
+		return order, utils.Error(utils.OrderNotFound, id)
 	}
 
 	order, ok = result.(models.Order)
 	if !ok {
-		return order, utils.Error(utils.OrderNotFound)
+		return order, utils.Error(utils.OrderNotFound, id)
 	}
 
 	return order, nil

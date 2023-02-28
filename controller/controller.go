@@ -12,6 +12,7 @@ type IController interface {
 	CreateOrder(item models.Item) (*models.Order, error)
 	GetAllProducts() []models.Product
 	GetOrder(id string) (models.Order, error)
+	CloseOrders()
 }
 
 type controller struct {
@@ -19,6 +20,7 @@ type controller struct {
 	productDB db.IProductsDB
 	ordersDB  db.IOrderDB
 	incoming  chan models.Order
+	done      chan struct{}
 }
 
 func NewController(products db.IProductsDB, orders db.IOrderDB) IController {
@@ -26,6 +28,7 @@ func NewController(products db.IProductsDB, orders db.IOrderDB) IController {
 		productDB: products,
 		ordersDB:  orders,
 		incoming:  make(chan models.Order),
+		done:      make(chan struct{}),
 	}
 
 	go c.processOrders()
@@ -40,10 +43,14 @@ func (c *controller) CreateOrder(item models.Item) (*models.Order, error) {
 	}
 
 	order := models.NewOrder(item)
-	c.ordersDB.Upsert(order)
 
-	c.incoming <- order
-	return &order, nil
+	select {
+	case c.incoming <- order:
+		c.ordersDB.Upsert(order)
+		return &order, nil
+	case <-c.done:
+		return nil, utils.Error(utils.OrdersClosed)
+	}
 }
 
 func (c *controller) GetAllProducts() []models.Product {
@@ -68,10 +75,19 @@ func (c *controller) validateItem(item models.Item) error {
 }
 
 func (c *controller) processOrders() {
-	for order := range c.incoming {
-		c.processOrder(&order)
-		c.ordersDB.Upsert(order)
+	for {
+		select {
+		case order := <-c.incoming:
+			c.processOrder(&order)
+			c.ordersDB.Upsert(order)
+		case <-c.done:
+			return
+		}
 	}
+	// for order := range c.incoming {
+	// 	c.processOrder(&order)
+	// 	c.ordersDB.Upsert(order)
+	// }
 }
 
 func (c *controller) processOrder(order *models.Order) {
@@ -95,4 +111,8 @@ func (c *controller) processOrder(order *models.Order) {
 	total := math.Round(float64(order.Item.Amount)*product.Price*100) / 100
 	order.Total = &total
 	order.Complete()
+}
+
+func (c *controller) CloseOrders() {
+	close(c.done)
 }

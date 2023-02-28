@@ -4,6 +4,7 @@ import (
 	"appliedConcurrency/controller"
 	"appliedConcurrency/models"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,7 @@ type iHandler interface {
 
 type handler struct {
 	c controller.IController
+	sync.Once
 }
 
 func newHandler(cont controller.IController) (iHandler, error) {
@@ -41,7 +43,7 @@ func (h *handler) GetOrderByID(c *gin.Context) {
 	order, err := h.c.GetOrder(id)
 
 	if err != nil {
-		c.Error(err)
+		c.String(http.StatusNotAcceptable, err.Error())
 		return
 	}
 
@@ -53,14 +55,14 @@ func (h *handler) CreateNewOrder(c *gin.Context) {
 
 	err := c.BindJSON(&item)
 	if err != nil {
-		c.Error(err)
+		c.String(http.StatusNotAcceptable, err.Error())
 		return
 	}
 
 	newModel, err := h.c.CreateOrder(item)
 
 	if err != nil {
-		c.Error(err)
+		c.String(http.StatusNotAcceptable, err.Error())
 		return
 	}
 
@@ -68,5 +70,8 @@ func (h *handler) CreateNewOrder(c *gin.Context) {
 }
 
 func (h *handler) Close(c *gin.Context) {
-
+	h.Once.Do(func() {
+		h.c.CloseOrders()
+	})
+	c.String(http.StatusAccepted, "The orders has been closed.")
 }
