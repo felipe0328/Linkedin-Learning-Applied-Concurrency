@@ -13,6 +13,7 @@ type iHandler interface {
 	GetProducts(*gin.Context)
 	GetOrderByID(*gin.Context)
 	CreateNewOrder(*gin.Context)
+	Close(*gin.Context)
 }
 
 type handler struct {
@@ -64,4 +65,8 @@ func (h *handler) CreateNewOrder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, newModel)
+}
+
+func (h *handler) Close(c *gin.Context) {
+
 }

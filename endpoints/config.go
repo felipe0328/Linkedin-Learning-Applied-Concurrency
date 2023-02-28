@@ -31,6 +31,7 @@ func configureEndpoints(router *gin.Engine, handler iHandler) error {
 	router.GET("/products", handler.GetProducts)
 	router.GET("/orders/:orderID", handler.GetOrderByID)
 	router.POST("/orders", handler.CreateNewOrder)
+	router.POST("/close", handler.Close)
 
 	return nil
 }

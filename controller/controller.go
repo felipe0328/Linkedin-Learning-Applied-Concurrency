@@ -18,13 +18,19 @@ type controller struct {
 	sync.Mutex
 	productDB db.IProductsDB
 	ordersDB  db.IOrderDB
+	incoming  chan models.Order
 }
 
 func NewController(products db.IProductsDB, orders db.IOrderDB) IController {
-	return &controller{
+	c := &controller{
 		productDB: products,
 		ordersDB:  orders,
+		incoming:  make(chan models.Order),
 	}
+
+	go c.processOrders()
+
+	return c
 }
 
 func (c *controller) CreateOrder(item models.Item) (*models.Order, error) {
@@ -36,7 +42,7 @@ func (c *controller) CreateOrder(item models.Item) (*models.Order, error) {
 	order := models.NewOrder(item)
 	c.ordersDB.Upsert(order)
 
-	go c.processNewOrder(&order)
+	c.incoming <- order
 	return &order, nil
 }
 
@@ -61,11 +67,11 @@ func (c *controller) validateItem(item models.Item) error {
 	return nil
 }
 
-func (c *controller) processNewOrder(order *models.Order) {
-	c.Lock()
-	defer c.Unlock()
-	c.processOrder(order)
-	c.ordersDB.Upsert(*order)
+func (c *controller) processOrders() {
+	for order := range c.incoming {
+		c.processOrder(&order)
+		c.ordersDB.Upsert(order)
+	}
 }
 
 func (c *controller) processOrder(order *models.Order) {
