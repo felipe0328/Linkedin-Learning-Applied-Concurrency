@@ -18,6 +18,7 @@ type iHandler interface {
 	CreateNewOrder(*gin.Context)
 	Close(*gin.Context)
 	GetStats(*gin.Context)
+	RequestReversal(*gin.Context)
 }
 
 type handler struct {
@@ -83,6 +84,21 @@ func (h *handler) GetStats(c *gin.Context) {
 	reqCtx := c.Request.Context()
 	ctx, cancel := context.WithTimeout(reqCtx, 100*time.Millisecond)
 	defer cancel()
-	stats := h.c.GetOrderStats(ctx)
+	stats, err := h.c.GetOrderStats(ctx)
+	if err != nil {
+		c.String(http.StatusNotAcceptable, err.Error())
+		return
+	}
 	c.JSON(http.StatusOK, stats)
+}
+
+func (h *handler) RequestReversal(c *gin.Context) {
+	orderID := c.Param("orderID")
+	order, err := h.c.RequestReversal(orderID)
+	if err != nil {
+		c.String(http.StatusNotAcceptable, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusAccepted, order)
 }

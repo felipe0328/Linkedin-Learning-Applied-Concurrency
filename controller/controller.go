@@ -15,7 +15,8 @@ type IController interface {
 	GetAllProducts() []models.Product
 	GetOrder(id string) (models.Order, error)
 	CloseOrders()
-	GetOrderStats(context.Context) models.Statistics
+	GetOrderStats(context.Context) (models.Statistics, error)
+	RequestReversal(orderID string) (*models.Order, error)
 }
 
 type controller struct {
@@ -25,6 +26,7 @@ type controller struct {
 	stats     stats.IStatsService
 	incoming  chan models.Order
 	processed chan models.Order
+	reversals chan models.Order
 	done      chan struct{}
 }
 
@@ -40,10 +42,12 @@ func NewController(products db.IProductsDB, orders db.IOrderDB) IController {
 		stats:     stats,
 		incoming:  make(chan models.Order),
 		processed: processedChan,
+		reversals: make(chan models.Order),
 		done:      doneChan,
 	}
 
 	go c.processOrders()
+	go c.processReversals()
 
 	return c
 }
@@ -97,10 +101,6 @@ func (c *controller) processOrders() {
 			return
 		}
 	}
-	// for order := range c.incoming {
-	// 	c.processOrder(&order)
-	// 	c.ordersDB.Upsert(order)
-	// }
 }
 
 func (c *controller) processOrder(order *models.Order) {
@@ -132,9 +132,51 @@ func (c *controller) CloseOrders() {
 
 func (c *controller) GetOrderStats(ctx context.Context) (models.Statistics, error) {
 	select {
-	case s := <-c.stats.GetStats():
+	case s := <-c.stats.GetStats(ctx):
 		return s, nil
 	case <-ctx.Done():
 		return models.Statistics{}, ctx.Err()
 	}
+}
+
+func (c *controller) RequestReversal(orderID string) (*models.Order, error) {
+	order, err := c.ordersDB.Find(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if order.Status != models.OrderStatus_Completed {
+		return nil, utils.Error("invalid order status for order id: %s", orderID)
+	}
+
+	order.Status = models.OrderStatus_ReversalRequested
+
+	select {
+	case c.reversals <- order:
+		c.ordersDB.Upsert(order)
+		return &order, nil
+	case <-c.done:
+		return nil, utils.Error(utils.OrdersClosed)
+	}
+}
+
+func (c *controller) processReversals() {
+	select {
+	case order := <-c.reversals:
+		c.processReversal(order)
+	case <-c.done:
+		return
+	}
+}
+
+func (c *controller) processReversal(order models.Order) {
+	item := order.Item
+	product, err := c.productDB.Find(item.ProductID)
+	if err != nil {
+		return
+	}
+	product.Stock = product.Stock + item.Amount
+	c.productDB.Upsert(product)
+	order.Status = models.OrderStatus_Reversed
+	c.processed <- order
 }

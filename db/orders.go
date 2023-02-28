@@ -37,3 +37,7 @@ func (o *OrderDB) Find(id string) (models.Order, error) {
 func (o *OrderDB) Upsert(order models.Order) {
 	o.placedOrders.Store(order.ID, order)
 }
+
+func (o *OrderDB) Delete(order models.Order) {
+	o.placedOrders.Delete(order.ID)
+}
