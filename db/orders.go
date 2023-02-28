@@ -3,6 +3,7 @@ package db
 import (
 	"appliedConcurrency/models"
 	"appliedConcurrency/utils"
+	"sync"
 )
 
 type IOrderDB interface {
@@ -11,18 +12,21 @@ type IOrderDB interface {
 }
 
 type OrderDB struct {
-	placedOrders map[string]models.Order
+	placedOrders sync.Map
 }
 
 func NewOrders() IOrderDB {
-	return &OrderDB{
-		placedOrders: make(map[string]models.Order),
-	}
+	return &OrderDB{}
 }
 
 func (o *OrderDB) Find(id string) (models.Order, error) {
 	var order models.Order
-	order, ok := o.placedOrders[id]
+	result, ok := o.placedOrders.Load(id)
+	if !ok {
+		return order, utils.Error(utils.OrderNotFound)
+	}
+
+	order, ok = result.(models.Order)
 	if !ok {
 		return order, utils.Error(utils.OrderNotFound)
 	}
@@ -31,5 +35,5 @@ func (o *OrderDB) Find(id string) (models.Order, error) {
 }
 
 func (o *OrderDB) Upsert(order models.Order) {
-	o.placedOrders[order.ID] = order
+	o.placedOrders.Store(order.ID, order)
 }

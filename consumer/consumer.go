@@ -18,7 +18,7 @@ const (
 	index           = "/"
 	createOrder     = "/orders"
 	maxOrderAmount  = 15
-	simulationCount = 100
+	simulationCount = 500
 )
 
 var products []string = []string{"MWBLU", "MWLEM", "MWORG", "MWPEA", "MWRAS", "MWSTR", "MWCRA", "MWMAN"}
@@ -43,7 +43,7 @@ func main() {
 func createNewOrder(number int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	rand.New(rand.NewSource(time.Now().UnixNano()))
-	amount := rand.Intn((maxOrderAmount) + 1)
+	amount := rand.Intn((maxOrderAmount)) + 1
 	product := products[rand.Intn(len(products))]
 
 	item := models.Item{

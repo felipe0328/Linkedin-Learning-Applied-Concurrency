@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 )
 
 const produtsInputPath = "./input/products.csv"
 
-func ImportProductsData(products map[string]models.Product) error {
+func ImportProductsData(products *sync.Map) error {
 	data, err := readCSV(produtsInputPath)
 	if err != nil {
 		return err
@@ -33,12 +34,13 @@ func ImportProductsData(products map[string]models.Product) error {
 			continue
 		}
 
-		products[id] = models.Product{
-			ID:   id,
-			Name: fmt.Sprintf("%s(%s)", line[1], line[3]),
+		newProduct := models.Product{
+			ID:    id,
+			Name:  fmt.Sprintf("%s(%s)", line[1], line[3]),
 			Stock: stock,
 			Price: price,
 		}
+		products.Store(id, newProduct)
 	}
 
 	return nil

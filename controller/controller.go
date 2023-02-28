@@ -5,6 +5,7 @@ import (
 	"appliedConcurrency/models"
 	"appliedConcurrency/utils"
 	"math"
+	"sync"
 )
 
 type IController interface {
@@ -14,6 +15,7 @@ type IController interface {
 }
 
 type controller struct {
+	sync.Mutex
 	productDB db.IProductsDB
 	ordersDB  db.IOrderDB
 }
@@ -34,8 +36,7 @@ func (c *controller) CreateOrder(item models.Item) (*models.Order, error) {
 	order := models.NewOrder(item)
 	c.ordersDB.Upsert(order)
 
-	c.processOrder(&order)
-	c.ordersDB.Upsert(order)
+	go c.processNewOrder(&order)
 	return &order, nil
 }
 
@@ -58,6 +59,13 @@ func (c *controller) validateItem(item models.Item) error {
 	}
 
 	return nil
+}
+
+func (c *controller) processNewOrder(order *models.Order) {
+	c.Lock()
+	defer c.Unlock()
+	c.processOrder(order)
+	c.ordersDB.Upsert(*order)
 }
 
 func (c *controller) processOrder(order *models.Order) {

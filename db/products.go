@@ -4,6 +4,7 @@ import (
 	"appliedConcurrency/models"
 	"appliedConcurrency/utils"
 	"sort"
+	"sync"
 )
 
 type IProductsDB interface {
@@ -14,15 +15,13 @@ type IProductsDB interface {
 }
 
 type ProductsDB struct {
-	products map[string]models.Product
+	products sync.Map
 }
 
 func NewProducts() (IProductsDB, error) {
-	p := &ProductsDB{
-		products: make(map[string]models.Product),
-	}
+	p := &ProductsDB{}
 
-	if err := utils.ImportProductsData(p.products); err != nil {
+	if err := utils.ImportProductsData(&p.products); err != nil {
 		return nil, err
 	}
 
@@ -30,31 +29,35 @@ func NewProducts() (IProductsDB, error) {
 }
 
 func (p *ProductsDB) Exists(id string) bool {
-	_, ok := p.products[id]
+	_, ok := p.products.Load(id)
 	return ok
 }
 
 func (p *ProductsDB) Find(id string) (models.Product, error) {
-	prod, ok := p.products[id]
+	var prod models.Product
+	result, ok := p.products.Load(id)
 	if !ok {
 		return prod, utils.Error(utils.ProductNotFound, id)
 	}
 
+	prod, ok = result.(models.Product)
+	if !ok {
+		return prod, utils.Error(utils.ProductNotFound, id)
+	}
 	return prod, nil
 }
 
 func (p *ProductsDB) Upsert(product models.Product) {
-	p.products[product.ID] = product
+	p.products.Store(product.ID, product)
 }
 
 func (p *ProductsDB) FindAll() []models.Product {
-	result := make([]models.Product, len(p.products))
+	result := make([]models.Product, 0)
 
-	listCounter := 0
-	for _, value := range p.products {
-		result[listCounter] = value
-		listCounter++
-	}
+	p.products.Range(func(key, value interface{}) bool {
+		result = append(result, value.(models.Product))
+		return true
+	})
 
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].ID < result[j].ID
