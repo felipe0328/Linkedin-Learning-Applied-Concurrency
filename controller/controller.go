@@ -5,6 +5,7 @@ import (
 	"appliedConcurrency/models"
 	"appliedConcurrency/stats"
 	"appliedConcurrency/utils"
+	"context"
 	"math"
 	"sync"
 )
@@ -14,7 +15,7 @@ type IController interface {
 	GetAllProducts() []models.Product
 	GetOrder(id string) (models.Order, error)
 	CloseOrders()
-	GetOrderStats() models.Statistics
+	GetOrderStats(context.Context) models.Statistics
 }
 
 type controller struct {
@@ -129,6 +130,11 @@ func (c *controller) CloseOrders() {
 	close(c.done)
 }
 
-func (c *controller) GetOrderStats() models.Statistics {
-	return c.stats.GetStats()
+func (c *controller) GetOrderStats(ctx context.Context) (models.Statistics, error) {
+	select {
+	case s := <-c.stats.GetStats():
+		return s, nil
+	case <-ctx.Done():
+		return models.Statistics{}, ctx.Err()
+	}
 }

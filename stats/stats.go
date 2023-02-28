@@ -1,11 +1,14 @@
 package stats
 
-import "appliedConcurrency/models"
+import (
+	"appliedConcurrency/models"
+	"context"
+)
 
 const workerCount = 3
 
 type IStatsService interface {
-	GetStats() models.Statistics
+	GetStats(context.Context) <-chan models.Statistics
 }
 
 type statsService struct {
@@ -32,8 +35,19 @@ func NewStats(processed <-chan models.Order, done <-chan struct{}) IStatsService
 	return &s
 }
 
-func (s *statsService) GetStats() models.Statistics {
-	return s.result.Get()
+func (s *statsService) GetStats(ctx context.Context) <-chan models.Statistics {
+	stats := make(chan models.Statistics)
+
+	go func() {
+		select {
+		case stats <- s.result.Get():
+			return
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	return stats
 }
 
 func (s *statsService) processStats() {

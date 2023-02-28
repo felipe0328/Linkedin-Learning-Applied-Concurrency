@@ -3,8 +3,10 @@ package endpoints
 import (
 	"appliedConcurrency/controller"
 	"appliedConcurrency/models"
+	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -78,5 +80,9 @@ func (h *handler) Close(c *gin.Context) {
 }
 
 func (h *handler) GetStats(c *gin.Context) {
-	c.JSON(http.StatusOK, h.c.GetOrderStats())
+	reqCtx := c.Request.Context()
+	ctx, cancel := context.WithTimeout(reqCtx, 100*time.Millisecond)
+	defer cancel()
+	stats := h.c.GetOrderStats(ctx)
+	c.JSON(http.StatusOK, stats)
 }
