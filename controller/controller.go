@@ -3,6 +3,7 @@ package controller
 import (
 	"appliedConcurrency/db"
 	"appliedConcurrency/models"
+	"appliedConcurrency/stats"
 	"appliedConcurrency/utils"
 	"math"
 	"sync"
@@ -13,22 +14,32 @@ type IController interface {
 	GetAllProducts() []models.Product
 	GetOrder(id string) (models.Order, error)
 	CloseOrders()
+	GetOrderStats() models.Statistics
 }
 
 type controller struct {
 	sync.Mutex
 	productDB db.IProductsDB
 	ordersDB  db.IOrderDB
+	stats     stats.IStatsService
 	incoming  chan models.Order
+	processed chan models.Order
 	done      chan struct{}
 }
 
 func NewController(products db.IProductsDB, orders db.IOrderDB) IController {
+	processedChan := make(chan models.Order)
+	doneChan := make(chan struct{})
+
+	stats := stats.NewStats(processedChan, doneChan)
+
 	c := &controller{
 		productDB: products,
 		ordersDB:  orders,
+		stats:     stats,
 		incoming:  make(chan models.Order),
-		done:      make(chan struct{}),
+		processed: processedChan,
+		done:      doneChan,
 	}
 
 	go c.processOrders()
@@ -80,6 +91,7 @@ func (c *controller) processOrders() {
 		case order := <-c.incoming:
 			c.processOrder(&order)
 			c.ordersDB.Upsert(order)
+			c.processed <- order
 		case <-c.done:
 			return
 		}
@@ -115,4 +127,8 @@ func (c *controller) processOrder(order *models.Order) {
 
 func (c *controller) CloseOrders() {
 	close(c.done)
+}
+
+func (c *controller) GetOrderStats() models.Statistics {
+	return c.stats.GetStats()
 }

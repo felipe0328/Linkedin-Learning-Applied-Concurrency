@@ -15,6 +15,7 @@ type iHandler interface {
 	GetOrderByID(*gin.Context)
 	CreateNewOrder(*gin.Context)
 	Close(*gin.Context)
+	GetStats(*gin.Context)
 }
 
 type handler struct {
@@ -74,4 +75,8 @@ func (h *handler) Close(c *gin.Context) {
 		h.c.CloseOrders()
 	})
 	c.String(http.StatusAccepted, "The orders has been closed.")
+}
+
+func (h *handler) GetStats(c *gin.Context) {
+	c.JSON(http.StatusOK, h.c.GetOrderStats())
 }
